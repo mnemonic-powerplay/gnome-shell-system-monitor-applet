@@ -2365,8 +2365,10 @@ function enable() {
         Main.panel._addToPanelBox('system-monitor', tray, 1, panel);
 
         // The spacing adds a distance between the graphs/text on the top bar
-        let spacing = Schema.get_boolean('compact-display') ? '1' : '4';
-        let box = new St.BoxLayout({style: 'spacing: ' + spacing + 'px;'});
+        const hSpace = '2';
+        const paddingTopBottom = '8';
+        let spacing = Schema.get_boolean('compact-display') ? '1' : hSpace;
+        let box = new St.BoxLayout({style: 'padding: ' + paddingTopBottom + 'px 0; spacing: ' + spacing + 'px;'});
         if (shell_Version < '3.36') {
             tray.actor.add_actor(box);
         } else {
