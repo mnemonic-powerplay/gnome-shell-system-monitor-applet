@@ -2448,7 +2448,7 @@ function enable() {
         Main.__sm.elts.push(new Gpu());
         Main.__sm.elts.push(new Thermal());
         Main.__sm.elts.push(new Fan());
-        Main.__sm.elts.push(new Battery());
+        // Main.__sm.elts.push(new Battery());
 
         let tray = Main.__sm.tray;
         let elts = Main.__sm.elts;
