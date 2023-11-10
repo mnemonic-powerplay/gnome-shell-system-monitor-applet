@@ -1,7 +1,7 @@
 # -*- coding: utf-8; mode: makefile-gmake -*-
 # Basic Makefile
 
-UUID = system-monitor@paradoxxx.zero.gmail.com
+UUID = system-monitor-next@paradoxxx.zero.gmail.com
 INSTALLNAME = $(UUID)
 
 BASE_MODULES = \
@@ -10,7 +10,6 @@ BASE_MODULES = \
   $(UUID)/metadata.json \
   $(UUID)/prefs.js \
   $(UUID)/stylesheet.css \
-  $(UUID)/convenience.js \
   $(UUID)/compat.js \
   $(UUID)/gpu_usage.sh
 
@@ -123,6 +122,7 @@ ZIPFILE=$(UUID)$(VSTRING).zip
 
 zip-file: build.clean build
 	$(Q)cd _build ; zip $(V) -qr $(ZIPFILE) .
+	$(Q)mkdir -p dist
 	$(Q)mv _build/$(ZIPFILE) ./dist/$(ZIPFILE)
 	$(call msg,$@,OK)
 
@@ -155,6 +155,8 @@ PHONY += build build.clean
 build: translate
 	$(Q)mkdir -p _build
 	$(Q)cp $(VV) $(BASE_MODULES) _build
+	$(Q)mkdir -p _build/ui
+	$(Q)cp $(VV) -r $(UUID)/ui/* _build/ui/
 	$(Q)mkdir -p _build/locale
 	$(Q)cp $(VV) -r $(UUID)/locale/* _build/locale/
 	$(Q)mkdir -p _build/schemas
@@ -171,13 +173,13 @@ build.clean:
 PHONY += translate
 translate: extension
 	$(Q)cd po;\
-           ./compile.sh ../system-monitor@paradoxxx.zero.gmail.com/locale \
+           ./compile.sh ../system-monitor-next@paradoxxx.zero.gmail.com/locale \
 	   | tr '\n' ' ' \
 	   | sed -e 's/^/  [$@   ] /;'; echo
 	$(call msg,$@,OK)
 
 clean:: translation.clean
 translation.clean:
-	$(Q)git checkout -f -- system-monitor@paradoxxx.zero.gmail.com/locale
+	$(Q)git checkout -f -- system-monitor-next@paradoxxx.zero.gmail.com/locale
 
 .PHONY: $(PHONY)
