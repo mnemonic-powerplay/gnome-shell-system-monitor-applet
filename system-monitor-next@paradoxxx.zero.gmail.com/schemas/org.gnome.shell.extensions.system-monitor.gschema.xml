@@ -7,7 +7,7 @@
   <enum id="org.gnome.shell.extensions.system-monitor.disk-usage-style">
     <value value="0" nick="pie"/>
     <value value="1" nick="bar"/>
-    <value value="2" nick="none"/>       
+    <value value="2" nick="none"/>
   </enum>
   <schema id="org.gnome.shell.extensions.system-monitor" path="/org/gnome/shell/extensions/system-monitor/">
     <key name="icon-display" type="b">
@@ -260,10 +260,10 @@
       <default>'graph'</default>
       <summary>Choose the display style.</summary>
     </key>
-    <key name="thermal-sensor-file" type="s">
-      <default>'/sys/devices/virtual/thermal/thermal_zone0/temp'</default>
-      <summary>Sensor File</summary>
-      <description>Location of the sensor file for cpu temp</description>
+    <key name="thermal-sensor-label" type="s">
+      <default>''</default>
+      <summary>Sensor Label</summary>
+      <description>Label of the sensor file for cpu temp</description>
     </key>
     <key name="thermal-threshold" type="i">
       <default>0</default>
@@ -299,10 +299,10 @@
       <default>'graph'</default>
       <summary>Choose the display style.</summary>
     </key>
-    <key name="fan-sensor-file" type="s">
-      <default>'/sys/devices/virtual/thermal/cooling_device0/cur_state'</default>
-      <summary>Sensor File</summary>
-      <description>Location of the sensor file for fan</description>
+    <key name="fan-sensor-label" type="s">
+      <default>''</default>
+      <summary>Sensor Label</summary>
+      <description>Label of the sensor file for fan</description>
     </key>
     <key name="fan-fan0-color" type="s">
       <default>'#f2002e'</default>

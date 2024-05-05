@@ -39,6 +39,8 @@ import * as PopupMenu from "resource:///org/gnome/shell/ui/popupMenu.js";
 
 import * as Util from "resource:///org/gnome/shell/misc/util.js";
 
+import { parse_bytearray, check_sensors } from './common.js';
+
 const NetworkManager = NM;
 const UPower = UPowerGlib;
 // Copied as of https://gitlab.gnome.org/GNOME/gnome-shell/-/blob/5fa08fe53376f5dca755360bd005a4a51ca78917/js/ui/panel.js#L45
@@ -64,11 +66,6 @@ Clutter.Actor.prototype.reparent = function reparent(newParent) {
 
 function sm_log(message) {
     console.log(`[system-monitor-next] ${message}`);
-}
-
-function parse_bytearray(maybeBA) {
-    const decoder = new TextDecoder('utf-8');
-    return decoder.decode(maybeBA);
 }
 
 function l_limit(t) {
@@ -706,6 +703,7 @@ const TipMenu = class SystemMonitor_TipMenu extends PopupMenu.PopupMenuBase {
         let tipx = cx - width / 2;
         tipx = Math.max(tipx, monitor.x);
         tipx = Math.min(tipx, monitor.x + monitor.width - width);
+        tipx = Math.floor(tipx);
         let tipy = Math.floor(ym);
         // Hacky condition to determine if the status bar is at the top or at the bottom of the screen
         if (sourceTopLeftY / monitor.height > 0.3) {
@@ -2009,18 +2007,20 @@ const Thermal = class SystemMonitor_Thermal extends ElementBase {
             color_name: ['tz0']
         });
         this.max = 100;
+        this.sensors = check_sensors("temp");
 
         this.item_name = _('Thermal');
         this.temperature = '-- ';
         this.fahrenheit_unit = extension._Schema.get_boolean(this.elt + '-fahrenheit-unit');
         this.display_error = true;
         this.tip_format(this.temperature_symbol());
-        extension._Schema.connect('changed::' + this.elt + '-sensor-file', this.refresh.bind(this));
+        extension._Schema.connect('changed::' + this.elt + '-sensor-label', this.refresh.bind(this));
         this.update();
     }
     refresh() {
-        let sfile = this.extension._Schema.get_string(this.elt + '-sensor-file');
-        if (GLib.file_test(sfile, GLib.FileTest.EXISTS)) {
+        let label = this.extension._Schema.get_string(this.elt + '-sensor-label');
+        let sfile = this.sensors[label];
+        if (sfile !== undefined && GLib.file_test(sfile, GLib.FileTest.EXISTS)) {
             let file = Gio.file_new_for_path(sfile);
             file.load_contents_async(null, (source, result) => {
                 let as_r = source.load_contents_finish(result)
@@ -2082,15 +2082,17 @@ const Fan = class SystemMonitor_Fan extends ElementBase {
             item_name: _('Fan'),
             color_name: ['fan0']
         });
+        this.sensors = check_sensors("fan");
         this.rpm = 0;
         this.display_error = true;
         this.tip_format(_('rpm'));
-        extension._Schema.connect('changed::' + this.elt + '-sensor-file', this.refresh.bind(this));
+        extension._Schema.connect('changed::' + this.elt + '-sensor-label', this.refresh.bind(this));
         this.update();
     }
     refresh() {
-        let sfile = this.extension._Schema.get_string(this.elt + '-sensor-file');
-        if (GLib.file_test(sfile, GLib.FileTest.EXISTS)) {
+        let label = this.extension._Schema.get_string(this.elt + '-sensor-label');
+        let sfile = this.sensors[label];
+        if (sfile && GLib.file_test(sfile, GLib.FileTest.EXISTS)) {
             let file = Gio.file_new_for_path(sfile);
             file.load_contents_async(null, (source, result) => {
                 let as_r = source.load_contents_finish(result)
@@ -2160,7 +2162,7 @@ const Gpu = class SystemMonitor_Gpu extends ElementBase {
         // Run asynchronously, to avoid shell freeze
         try {
             let path = this.extension.path;
-            let script = ['/bin/bash', path + '/gpu_usage.sh'];
+            let script = ['/usr/bin/env', 'bash', path + '/gpu_usage.sh'];
 
             // Create subprocess and capture STDOUT
             let proc = new Gio.Subprocess({argv: script, flags: Gio.SubprocessFlags.STDOUT_PIPE});
@@ -2233,8 +2235,8 @@ const Gpu = class SystemMonitor_Gpu extends ElementBase {
             this.vals = [0, 0];
             this.tip_vals = [0, 0];
         } else {
-            // we subtract percentage from memory because we do not want memory to be 
-            // "accumulated" in the chart with utilization; these two measures should be 
+            // we subtract percentage from memory because we do not want memory to be
+            // "accumulated" in the chart with utilization; these two measures should be
             // independent
             this.vals = [this.percentage, this.mem / this.total * 100 - this.percentage];
             this.tip_vals = [Math.round(this.vals[0]), this.mem];

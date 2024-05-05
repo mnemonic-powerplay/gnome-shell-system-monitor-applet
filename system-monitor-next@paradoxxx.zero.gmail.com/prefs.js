@@ -10,6 +10,8 @@ import Adw from "gi://Adw";
 
 import { ExtensionPreferences, gettext as _ } from "resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js";
 
+import { check_sensors } from './common.js';
+
 const N_ = function (e) {
     return e;
 };
@@ -31,90 +33,6 @@ function color_to_hex(color) {
         255 * color.blue,
         255 * color.alpha);
     return output;
-}
-
-function parse_bytearray(bytearray) {
-    const decoder = new TextDecoder('utf-8');
-    return decoder.decode(bytearray);
-}
-
-function check_sensors(sensor_type) {
-    const hwmon_path = '/sys/class/hwmon/';
-    const hwmon_dir = Gio.file_new_for_path(hwmon_path);
-
-    const sensor_files = [];
-    const sensor_labels = [];
-
-    function get_label_from(file) {
-        if (file.query_exists(null)) {
-            // load_contents (and even cat) fails with "Invalid argument" for some label files
-            try {
-                let [success, contents] = file.load_contents(null);
-                if (success) {
-                    return String(parse_bytearray(contents)).split('\n')[0];
-                }
-            } catch (e) {
-                sm_log('error loading label from file ' + file.get_path() + ': ' + e);
-            }
-        }
-        return null;
-    }
-
-    function add_sensors_from(chip_dir, chip_label) {
-        const chip_children = chip_dir.enumerate_children(
-            'standard::name,standard::type', Gio.FileQueryInfoFlags.NONE, null);
-        if (!chip_children) {
-            sm_log('error enumerating children of chip ' + chip_dir.get_path());
-            return false;
-        }
-
-        const input_entry_regex = new RegExp('^' + sensor_type + '(\\d+)_input$');
-        let info;
-        let added = false;
-        while ((info = chip_children.next_file(null))) {
-            if (info.get_file_type() !== Gio.FileType.REGULAR) {
-                continue;
-            }
-            const matches = info.get_name().match(input_entry_regex);
-            if (!matches) {
-                continue;
-            }
-            const input_ordinal = matches[1];
-            const input = chip_children.get_child(info);
-            const input_label = get_label_from(chip_dir.get_child(sensor_type + input_ordinal + '_label'));
-
-            sensor_files.push(input.get_path());
-            sensor_labels.push(chip_label + ' - ' + (input_label || input_ordinal));
-            added = true;
-        }
-        return added;
-    }
-
-    const hwmon_children = hwmon_dir.enumerate_children(
-        'standard::name,standard::type', Gio.FileQueryInfoFlags.NONE, null);
-    if (!hwmon_children) {
-        sm_log('error enumerating hwmon children');
-        return [[], []];
-    }
-
-    let info;
-    while ((info = hwmon_children.next_file(null))) {
-        if (info.get_file_type() !== Gio.FileType.DIRECTORY || !info.get_name().match(/^hwmon\d+$/)) {
-            continue;
-        }
-        const chip = hwmon_children.get_child(info);
-        const chip_label = get_label_from(chip.get_child('name')) || chip.get_basename();
-
-        if (!add_sensors_from(chip, chip_label)) {
-            // This is here to provide compatibility with previous code, but I can't find any
-            // information about sensors being stored in chip/device directory. Can we delete it?
-            const chip_device = chip.get_child('device');
-            if (chip_device.query_exists(null)) {
-                add_sensors_from(chip_device, chip_label);
-            }
-        }
-    }
-    return [sensor_files, sensor_labels];
 }
 
 // ** General Preferences Page **
@@ -532,15 +450,15 @@ const SMExpanderRow = GObject.registerClass({
                     'thermal-tz0-color',
                 ];
 
-                let [_slist, _strlist] = check_sensors('temp');
+                const labels = Object.keys(check_sensors('temp'));
                 let stringListModel = new Gtk.StringList();
 
-                if (_slist.length === 0)
-                    stringListModel.append(_('Please install lm-sensors'));
-                else if (_slist.length === 1)
-                    this._settings.set_string('thermal-sensor-file', _slist[0]);
+                if (labels.length === 0)
+                    stringListModel.append(_('No temperature sensors found'));
+                else if (labels.length === 1)
+                    this._settings.set_string('thermal-sensor-label', labels[0]);
 
-                _strlist.forEach(str => {
+                labels.forEach(str => {
                     stringListModel.append(str);
                 });
 
@@ -548,13 +466,13 @@ const SMExpanderRow = GObject.registerClass({
                 item.set_model(stringListModel);
 
                 try {
-                    item.set_selected(_slist.indexOf(this._settings.get_string('thermal-sensor-file')));
+                    item.set_selected(labels.indexOf(this._settings.get_string('thermal-sensor-label')));
                 } catch (e) {
                     item.set_selected(0);
                 }
 
                 item.connect('notify::selected', widget => {
-                    this._settings.set_string('thermal-sensor-file', _slist[widget.selected]);
+                    this._settings.set_string('thermal-sensor-label', labels[widget.selected]);
                 });
                 this.add_row(item);
                 this._addColorsItem(thermalColors);
@@ -590,15 +508,15 @@ const SMExpanderRow = GObject.registerClass({
 
                 this._addColorsItem(fanColors);
 
-                let [_slist, _strlist] = check_sensors('fan');
+                const labels = Object.keys(check_sensors('fan'));
                 let stringListModel = new Gtk.StringList();
 
-                if (_slist.length === 0)
-                    stringListModel.append(_('Please install lm-sensors'));
-                else if (_slist.length === 1)
-                    this._settings.set_string('fan-sensor-file', _slist[0]);
+                if (labels.length === 0)
+                    stringListModel.append(_('No fan sensors found'));
+                else if (labels.length === 1)
+                    this._settings.set_string('fan-sensor-label', labels[0]);
 
-                _strlist.forEach(str => {
+                labels.forEach(str => {
                     stringListModel.append(str);
                 });
 
@@ -606,13 +524,13 @@ const SMExpanderRow = GObject.registerClass({
                 item.set_model(stringListModel);
 
                 try {
-                    item.set_selected(_slist.indexOf(this._settings.get_string('fan-sensor-file')));
+                    item.set_selected(labels.indexOf(this._settings.get_string('fan-sensor-label')));
                 } catch (e) {
                     item.set_selected(0);
                 }
 
                 item.connect('notify::selected', widget => {
-                    this._settings.set_string('fan-sensor-file', _slist[widget.selected]);
+                    this._settings.set_string('fan-sensor-label', labels[widget.selected]);
                 });
                 this.add_row(item);
                 break;
